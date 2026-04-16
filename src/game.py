@@ -1,35 +1,29 @@
-import sys
+import os
+import pygame as pg
+from .import constants as c
+from . import controller
 
-import pygame
-from pygame.locals import *
- 
-pygame.init()
- 
-# Set the width and height of the screen [width, height]
-size = (700, 500)
-screen = pygame.display.set_mode(size)
- 
-pygame.display.set_caption("My Game")
- 
-# Loop until the user clicks the close button.
-done = False
- 
-# Used to manage how fast the screen updates
-clock = pygame.time.Clock()
- 
-# -------- Main Program Loop -----------
-while not done:
-    # --- Main event loop
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            done = True
 
-    screen.fill(WHITE)
+ORIGINAL_CAPTION = c.ORIGINAL_CAPTION
 
-    pygame.display.flip()
- 
-    # --- Limit to 60 frames per second
-    clock.tick(60)
- 
-# Close the window and quit.
-pygame.quit()
+
+os.environ['SDL_VIDEO_CENTERED'] = '1'
+pg.init()
+pg.event.set_allowed([pg.KEYDOWN, pg.KEYUP, pg.QUIT])
+pg.display.set_caption(c.ORIGINAL_CAPTION)
+
+SCREEN = pg.display.set_mode(c.SCREEN_SIZE)
+SCREEN_RECT = SCREEN.get_rect()
+
+
+# FONTS = tools.load_all_fonts(os.path.join("resources","fonts"))
+# MUSIC = tools.load_all_music(os.path.join("resources","music"))
+# GFX   = controller.load_all_gfx(os.path.join("resources","graphics"))
+# SFX   = tools.load_all_sfx(os.path.join("resources","sound"))
+
+
+def main():
+    """Add states to control here."""
+    run_it = controller.Controller(ORIGINAL_CAPTION)
+
+    run_it.main()
