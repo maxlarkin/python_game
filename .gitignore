@@ -20,6 +20,8 @@ lib
 lib64
 __pycache__
 *_cache
+.pytest_cache
+save.dat
 venv
 
 # Installer logs
