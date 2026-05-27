@@ -1,18 +1,15 @@
-#!/usr/bin/env python
-__author__ = 'justinarmstrong'
+"""Entry point for Exile of the Doomed."""
 
-"""
-This is an attempt to recreate the first level of
-Super Mario Bros for the NES.
-"""
+from __future__ import annotations
 
-import sys
-import pygame as pg
-from src.game import main
-import cProfile
+from controllers.game_loop import GameLoop
 
 
-if __name__=='__main__':
+def main() -> None:
+    """Create and run the game loop."""
+
+    GameLoop().run()
+
+
+if __name__ == "__main__":
     main()
-    pg.quit()
-    sys.exit()
