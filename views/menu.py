@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import pygame
 
 import constants
+from views.text import create_font
 
 
 @dataclass(frozen=True)
@@ -16,17 +17,18 @@ class Button:
     label: str
     action: str
     rect: pygame.Rect
+    enabled: bool = True
 
 
 class MenuSystem:
     """Draw and process simple Pygame menus."""
 
-    def __init__(self, font: pygame.font.Font) -> None:
+    def __init__(self, font: object) -> None:
         """Initialize fonts."""
 
         self._font = font
-        self._title_font = pygame.font.SysFont("dejavusans", 48)
-        self._small_font = pygame.font.SysFont("dejavusans", 18)
+        self._title_font = create_font(48)
+        self._small_font = create_font(18)
 
     def handle_events(self, menu_name: str, has_save: bool) -> tuple[str | None, bool]:
         """Process menu events and return selected action plus quit flag."""
@@ -42,7 +44,7 @@ class MenuSystem:
                     return "back", False
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for button in buttons:
-                    if button.rect.collidepoint(event.pos):
+                    if button.enabled and button.rect.collidepoint(event.pos):
                         return button.action, False
         return None, False
 
@@ -63,17 +65,18 @@ class MenuSystem:
         )
 
         for button in self._buttons(menu_name, has_save):
-            enabled = button.action != "continue" or has_save
             mouse_over = button.rect.collidepoint(pygame.mouse.get_pos())
-            fill = (36, 43, 58) if enabled else (28, 30, 38)
-            if mouse_over and enabled:
+            fill = (36, 43, 58) if button.enabled else (28, 30, 38)
+            if mouse_over and button.enabled:
                 fill = (58, 70, 90)
             pygame.draw.rect(surface, fill, button.rect, border_radius=5)
             pygame.draw.rect(
                 surface, (95, 104, 126), button.rect, width=1, border_radius=5
             )
-            color = (235, 235, 238) if enabled else (112, 116, 128)
-            label = self._font.render(button.label, True, color)
+            color = (235, 235, 238) if button.enabled else (112, 116, 128)
+            label = self._font.render(  # type: ignore[attr-defined]
+                button.label, True, color
+            )
             label_rect = label.get_rect(center=button.rect.center)
             surface.blit(label, label_rect)
 
@@ -100,10 +103,13 @@ class MenuSystem:
         buttons: list[Button] = []
         start_y = 210
         for index, (label, action) in enumerate(labels):
-            if action == "continue" and not has_save:
+            enabled = action != "continue" or has_save
+            if not enabled:
                 label = f"{label} недоступно"
             rect = pygame.Rect(86, start_y + index * 58, 260, 42)
-            buttons.append(Button(label=label, action=action, rect=rect))
+            buttons.append(
+                Button(label=label, action=action, rect=rect, enabled=enabled)
+            )
         return buttons
 
     def _draw_story_hook(self, surface: pygame.Surface) -> None:

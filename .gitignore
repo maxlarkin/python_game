@@ -23,6 +23,10 @@ __pycache__
 .pytest_cache
 save.dat
 venv
+.venv
+
+
+
 
 # Installer logs
 pip-log.txt

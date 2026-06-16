@@ -7,16 +7,17 @@ import pygame
 import constants
 from models.galaxy import StarSystem, Universe
 from models.player import PlayerData
+from views.text import create_font
 
 
 class HUD:
     """Draw player status, objectives, and navigation widgets."""
 
-    def __init__(self, font: pygame.font.Font) -> None:
+    def __init__(self, font: object) -> None:
         """Store font resources."""
 
         self._font = font
-        self._small_font = pygame.font.SysFont("dejavusans", 16)
+        self._small_font = create_font(16)
 
     def draw(
         self,
@@ -67,7 +68,10 @@ class HUD:
         self._draw_text(surface, objective, (24, 148), (230, 230, 230))
         self._draw_text(
             surface,
-            f"Ресурсы: {player_data.resources}   Артефакты: {len(player_data.artifacts)}",
+            (
+                f"Ресурсы: {player_data.resources}   "
+                f"Артефакты: {len(player_data.artifacts)}"
+            ),
             (24, 176),
             (210, 210, 210),
         )
@@ -163,7 +167,9 @@ class HUD:
         text: str,
         pos: tuple[int, int],
         color: tuple[int, int, int],
-        font: pygame.font.Font | None = None,
+        font: object | None = None,
     ) -> None:
-        text_surface = (font or self._font).render(text, True, color)
+        text_surface = (font or self._font).render(  # type: ignore[attr-defined]
+            text, True, color
+        )
         surface.blit(text_surface, pos)

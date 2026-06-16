@@ -18,6 +18,7 @@ from utils.save_load import load_game, save_game
 from views.hud import HUD
 from views.menu import MenuSystem
 from views.renderer import Renderer
+from views.text import create_font
 
 
 class GameLoop:
@@ -34,7 +35,7 @@ class GameLoop:
             (constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT)
         )
         self._clock = pygame.time.Clock()
-        self._font = pygame.font.SysFont("dejavusans", 20)
+        self._font = create_font(20)
         self._input = InputHandler()
         self._renderer = Renderer(self._screen)
         self._hud = HUD(self._font)
@@ -94,7 +95,8 @@ class GameLoop:
             self._running = False
         elif action is not None:
             self._handle_menu_action(action)
-        self._menu.draw(self._screen, self._mode, self._save_path.exists())
+        if self._running and self._mode != "playing":
+            self._menu.draw(self._screen, self._mode, self._save_path.exists())
 
     def _fixed_update(self, state: InputState, dt: float) -> None:
         if self._system is None:
