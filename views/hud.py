@@ -64,13 +64,19 @@ class HUD:
 
         objective = system.objective_text
         if system.is_cleared():
-            objective = "Патруль уничтожен. H: гиперпрыжок"
+            objective = "Патруль уничтожен. H: карта гиперпрыжка"
+        elif system.planet_in_range():
+            objective = "E: связаться с планетой"
         self._draw_text(surface, objective, (24, 148), (230, 230, 230))
+        weapon = constants.PLAYER_WEAPONS[
+            system.player.weapon_index % len(constants.PLAYER_WEAPONS)
+        ]
         self._draw_text(
             surface,
             (
                 f"Ресурсы: {player_data.resources}   "
-                f"Артефакты: {len(player_data.artifacts)}"
+                f"Артефакты: {len(player_data.artifacts)}   "
+                f"Оружие: {weapon['name']}"
             ),
             (24, 176),
             (210, 210, 210),
@@ -121,11 +127,89 @@ class HUD:
                 rect.y + int(enemy.position.y * scale_y),
             )
             pygame.draw.rect(surface, (220, 150, 80), (pos[0] - 2, pos[1] - 2, 4, 4))
+        if system.planet is not None:
+            pos = (
+                rect.x + int(system.planet.position.x * scale_x),
+                rect.y + int(system.planet.position.y * scale_y),
+            )
+            pygame.draw.circle(surface, (126, 190, 128), pos, 5, width=1)
         player_pos = (
             rect.x + int(system.player.position.x * scale_x),
             rect.y + int(system.player.position.y * scale_y),
         )
         pygame.draw.circle(surface, (80, 220, 220), player_pos, 4)
+
+    def draw_hyperjump_map(
+        self,
+        surface: pygame.Surface,
+        universe: Universe,
+        player_data: PlayerData,
+        current_system_id: int,
+    ) -> None:
+        """Draw an interactive galaxy map for choosing the next system."""
+
+        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        surface.blit(overlay, (0, 0))
+        rect = self._hyperjump_rect()
+        pygame.draw.rect(surface, (12, 15, 24), rect, border_radius=6)
+        pygame.draw.rect(surface, (96, 108, 136), rect, width=1, border_radius=6)
+        self._draw_text(
+            surface,
+            "Карта гиперпрыжка",
+            (rect.x + 24, rect.y + 20),
+            (238, 238, 242),
+        )
+        self._draw_text(
+            surface,
+            "Выберите связанную систему мышью или клавишами 1-9. Esc: назад.",
+            (rect.x + 24, rect.y + 52),
+            (168, 176, 196),
+            self._small_font,
+        )
+        reachable_ids = {
+            node.system_id for node in universe.connected_systems(current_system_id)
+        }
+        self._draw_galaxy_connections(surface, universe, rect)
+        for node in universe.systems:
+            pos = self._galaxy_position(rect, node.map_position)
+            color = (84, 90, 112)
+            radius = 7
+            if node.system_id in player_data.unlocked_systems:
+                color = (104, 176, 202)
+            if node.system_id in reachable_ids:
+                color = (120, 220, 150)
+                radius = 9
+            if node.system_id == current_system_id:
+                color = (245, 218, 116)
+                radius = 10
+            pygame.draw.circle(surface, color, pos, radius)
+            pygame.draw.circle(surface, (18, 20, 28), pos, radius, width=1)
+            self._draw_text(
+                surface,
+                str(node.system_id + 1),
+                (pos[0] + 12, pos[1] - 8),
+                (222, 226, 236),
+                self._small_font,
+            )
+
+    def hyperjump_node_at(
+        self, screen_pos: tuple[int, int], universe: Universe, current_system_id: int
+    ) -> int | None:
+        """Return the reachable node under a screen position, if any."""
+
+        rect = self._hyperjump_rect()
+        reachable_ids = {
+            node.system_id for node in universe.connected_systems(current_system_id)
+        }
+        point = pygame.Vector2(screen_pos)
+        for node in universe.systems:
+            if node.system_id not in reachable_ids:
+                continue
+            pos = pygame.Vector2(self._galaxy_position(rect, node.map_position))
+            if point.distance_squared_to(pos) <= 16.0 * 16.0:
+                return node.system_id
+        return None
 
     def _draw_galaxy(
         self, surface: pygame.Surface, universe: Universe, player_data: PlayerData
@@ -133,33 +217,39 @@ class HUD:
         rect = pygame.Rect(constants.SCREEN_WIDTH - 210, 156, 180, 106)
         pygame.draw.rect(surface, (13, 15, 22), rect, border_radius=4)
         pygame.draw.rect(surface, (78, 82, 98), rect, width=1, border_radius=4)
+        self._draw_galaxy_connections(surface, universe, rect)
         for node in universe.systems:
-            x = rect.x + int(node.map_position[0] / constants.GALAXY_WIDTH * rect.width)
-            y = rect.y + int(
-                node.map_position[1] / constants.GALAXY_HEIGHT * rect.height
-            )
-            for connected_id in node.connections:
-                if connected_id < node.system_id:
-                    continue
-                other = universe.systems[connected_id]
-                ox = rect.x + int(
-                    other.map_position[0] / constants.GALAXY_WIDTH * rect.width
-                )
-                oy = rect.y + int(
-                    other.map_position[1] / constants.GALAXY_HEIGHT * rect.height
-                )
-                pygame.draw.line(surface, (54, 58, 78), (x, y), (ox, oy), 1)
-        for node in universe.systems:
-            x = rect.x + int(node.map_position[0] / constants.GALAXY_WIDTH * rect.width)
-            y = rect.y + int(
-                node.map_position[1] / constants.GALAXY_HEIGHT * rect.height
-            )
+            x, y = self._galaxy_position(rect, node.map_position)
             color = (110, 120, 140)
             if node.system_id in player_data.unlocked_systems:
                 color = (110, 190, 210)
             if node.system_id == player_data.current_system_id:
                 color = (245, 220, 130)
             pygame.draw.circle(surface, color, (x, y), 4)
+
+    def _draw_galaxy_connections(
+        self, surface: pygame.Surface, universe: Universe, rect: pygame.Rect
+    ) -> None:
+        for node in universe.systems:
+            x, y = self._galaxy_position(rect, node.map_position)
+            for connected_id in node.connections:
+                if connected_id < node.system_id:
+                    continue
+                other = universe.systems[connected_id]
+                ox, oy = self._galaxy_position(rect, other.map_position)
+                pygame.draw.line(surface, (54, 58, 78), (x, y), (ox, oy), 1)
+
+    def _galaxy_position(
+        self, rect: pygame.Rect, map_position: tuple[int, int]
+    ) -> tuple[int, int]:
+        return (
+            rect.x + int(map_position[0] / constants.GALAXY_WIDTH * rect.width),
+            rect.y + int(map_position[1] / constants.GALAXY_HEIGHT * rect.height),
+        )
+
+    @staticmethod
+    def _hyperjump_rect() -> pygame.Rect:
+        return pygame.Rect(230, 86, 820, 548)
 
     def _draw_text(
         self,

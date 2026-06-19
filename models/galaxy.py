@@ -12,6 +12,8 @@ from models.entities import (
     AncientShip,
     Asteroid,
     Entity,
+    Faction,
+    Planet,
     Projectile,
     Ship,
     create_ancient_ship,
@@ -35,6 +37,34 @@ class SystemNode:
 
 
 @dataclass
+class HitEffect:
+    """Short-lived visual marker for a weapon impact."""
+
+    position: pygame.Vector2
+    age: float = 0.0
+    duration: float = constants.HIT_EFFECT_DURATION
+
+    @property
+    def alive(self) -> bool:
+        """Return True while the effect should be rendered."""
+
+        return self.age < self.duration
+
+    @property
+    def ratio(self) -> float:
+        """Return normalized life progress in the range [0, 1]."""
+
+        if self.duration <= 0.0:
+            return 1.0
+        return max(0.0, min(1.0, self.age / self.duration))
+
+    def update(self, dt: float) -> None:
+        """Advance the effect timer."""
+
+        self.age += dt
+
+
+@dataclass
 class StarSystem:
     """Current playable location with entities and objectives."""
 
@@ -43,7 +73,9 @@ class StarSystem:
     player: Ship
     asteroids: list[Asteroid]
     enemies: list[AncientShip]
+    planet: Planet | None = None
     projectiles: list[Projectile] = field(default_factory=list)
+    hit_effects: list[HitEffect] = field(default_factory=list)
     width: int = constants.WORLD_WIDTH
     height: int = constants.WORLD_HEIGHT
     objective_text: str = "Уничтожьте патруль Древних"
@@ -60,6 +92,11 @@ class StarSystem:
 
         self.projectiles.append(projectile)
 
+    def add_hit_effect(self, position: pygame.Vector2) -> None:
+        """Add a visual impact effect at a world position."""
+
+        self.hit_effects.append(HitEffect(position.copy()))
+
     def update_entities(self, dt: float) -> None:
         """Advance all entities and remove destroyed objects."""
 
@@ -67,16 +104,58 @@ class StarSystem:
             entity.update(dt)
             self._wrap_entity(entity)
 
+        for effect in self.hit_effects:
+            effect.update(dt)
+
         self.asteroids = [asteroid for asteroid in self.asteroids if asteroid.alive]
         self.enemies = [enemy for enemy in self.enemies if enemy.alive]
         self.projectiles = [
             projectile for projectile in self.projectiles if projectile.alive
         ]
+        self.hit_effects = [effect for effect in self.hit_effects if effect.alive]
 
     def is_cleared(self) -> bool:
         """Return True when no enemies remain."""
 
         return not self.enemies
+
+    def planet_in_range(self) -> bool:
+        """Return True when the player can contact the system planet."""
+
+        if self.planet is None:
+            return False
+        return (
+            self.player.position.distance_squared_to(self.planet.position)
+            <= constants.PLANET_INTERACTION_DISTANCE
+            * constants.PLANET_INTERACTION_DISTANCE
+        )
+
+    def complete_planet_quest(self, player_data: PlayerData) -> list[str]:
+        """Complete the planet conversation and grant its one-time reward.
+
+        Args:
+            player_data: Persistent player progress.
+
+        Returns:
+            Dialog lines to show to the player.
+        """
+
+        if self.planet is None:
+            return []
+        lines = list(self.planet.dialog_lines)
+        if self.node.system_id in player_data.completed_quests:
+            return [f"{self.planet.name}: канал молчит. Архив уже изучен."]
+
+        self.planet.reward_claimed = True
+        player_data.completed_quests.append(self.node.system_id)
+        player_data.resources += constants.PLANET_QUEST_REWARD
+        artifact = f"Запись {self.planet.name}"
+        if artifact not in player_data.artifacts:
+            player_data.artifacts.append(artifact)
+        lines.append(
+            f"Получено: {constants.PLANET_QUEST_REWARD} ресурсов и архивный фрагмент."
+        )
+        return lines
 
     def _wrap_entity(self, entity: Entity) -> None:
         entity.position.x %= self.width
@@ -129,6 +208,9 @@ class Universe:
         player.health = player.max_health
         player.max_shields += player_data.upgrades.get("shields", 0) * 12.0
         player.shields = player.max_shields
+        player.max_speed += player_data.upgrades.get("engine", 0) * 24.0
+        player.max_energy += player_data.upgrades.get("reactor", 0) * 16.0
+        player.energy = player.max_energy
 
         asteroids = [
             create_asteroid(
@@ -158,12 +240,14 @@ class Universe:
                 rng.randint(constants.ANCIENT_COUNT_MIN, constants.ANCIENT_COUNT_MAX)
             )
         ]
+        planet = self._create_planet(node, rng, player_data)
         return StarSystem(
             node=node,
             seed=self.seed + system_id,
             player=player,
             asteroids=asteroids,
             enemies=enemies,
+            planet=planet,
         )
 
     def _generate(self) -> None:
@@ -215,3 +299,42 @@ class Universe:
     def _connect(self, left_id: int, right_id: int) -> None:
         self.systems[left_id].connections.add(right_id)
         self.systems[right_id].connections.add(left_id)
+
+    def _create_planet(
+        self, node: SystemNode, rng: random.Random, player_data: PlayerData
+    ) -> Planet | None:
+        if rng.random() >= constants.PLANET_CHANCE:
+            return None
+
+        position = pygame.Vector2(
+            rng.randint(180, constants.WORLD_WIDTH - 180),
+            rng.randint(180, constants.WORLD_HEIGHT - 180),
+        )
+        if (
+            position.distance_to(
+                pygame.Vector2(constants.WORLD_WIDTH / 2, constants.WORLD_HEIGHT / 2)
+            )
+            < constants.PLANET_INTERACTION_DISTANCE
+        ):
+            position += pygame.Vector2(constants.PLANET_INTERACTION_DISTANCE, 0.0)
+
+        name = f"Мир {node.system_id + 1:02d}"
+        dialog_lines = [
+            f"{name}: мы слышим ваш маяк сквозь помехи Древних.",
+            "Колонии видели, как армады выжигали навигационные станции одну за другой.",
+            "В Тиши их двигатели глохнут. Если флот доберётся туда, у обречённых будет шанс.",
+        ]
+        if player_data.runs_completed > 0:
+            dialog_lines.append(
+                "Память прошлых попыток не пропала: каждый забег оставляет след в ядре корабля."
+            )
+        return Planet(
+            position=position,
+            velocity=pygame.Vector2(),
+            radius=constants.PLANET_RADIUS,
+            faction=Faction.NEUTRAL,
+            max_health=10_000.0,
+            name=name,
+            dialog_lines=dialog_lines,
+            reward_claimed=node.system_id in player_data.completed_quests,
+        )

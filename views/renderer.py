@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import pygame
 
 import constants
-from models.entities import AncientShip, Asteroid, Projectile, Ship
+from models.entities import AncientShip, Asteroid, Planet, Projectile, Ship
 from models.galaxy import StarSystem
 from views.background import BackgroundGenerator
 
@@ -18,6 +19,13 @@ class Renderer:
     def __init__(self, screen: pygame.Surface) -> None:
         """Store target screen and initialize caches."""
 
+        assets_dir = Path(__file__).resolve().parent.parent / "assets"
+        self._player_sprite = self._load_ship_sprite(
+            assets_dir / "player.png", constants.PLAYER_RADIUS
+        )
+        self._enemy_sprite = self._load_ship_sprite(
+            assets_dir / "enemy.png", constants.ANCIENT_RADIUS
+        )
         self._screen = screen
         self._backgrounds = BackgroundGenerator()
         self._camera = pygame.Vector2()
@@ -42,13 +50,17 @@ class Renderer:
         self._camera = self._camera_for(system.player.position)
         background = self._backgrounds.get(system.seed, (system.width, system.height))
         self._screen.blit(background, (-round(self._camera.x), -round(self._camera.y)))
+        if system.planet is not None:
+            self._draw_planet(system.planet)
         for asteroid in system.asteroids:
             self._draw_asteroid(asteroid)
         for projectile in system.projectiles:
             self._draw_projectile(projectile)
+        for effect in system.hit_effects:
+            self._draw_hit_effect(effect.position, effect.ratio)
         for enemy in system.enemies:
-            self._draw_ship(enemy, (220, 150, 74), (95, 52, 35))
-        self._draw_ship(system.player, (70, 220, 225), (25, 92, 104))
+            self._draw_ship(enemy, self._enemy_sprite)
+        self._draw_ship(system.player, self._player_sprite)
         self._draw_warnings(system)
 
     def _camera_for(self, focus: pygame.Vector2) -> pygame.Vector2:
@@ -72,25 +84,28 @@ class Renderer:
     def _world_to_screen(self, position: pygame.Vector2) -> pygame.Vector2:
         return position - self._camera
 
-    def _draw_ship(
-        self,
-        ship: Ship,
-        color: tuple[int, int, int],
-        outline: tuple[int, int, int],
-    ) -> None:
+    def _draw_ship(self, ship: Ship, sprite: pygame.Surface) -> None:
         center = self._world_to_screen(ship.position)
-        width = int(ship.radius * 2.2)
-        height = int(ship.radius * 1.45)
-        rect = pygame.Rect(0, 0, width, height)
-        rect.center = (round(center.x), round(center.y))
-        pygame.draw.rect(self._screen, outline, rect.inflate(5, 5), border_radius=3)
-        pygame.draw.rect(self._screen, color, rect, border_radius=3)
-        if ship.velocity.length_squared() > 16.0:
-            direction = ship.velocity.normalize()
-            nose = center + direction * ship.radius
-            pygame.draw.line(self._screen, (240, 245, 245), center, nose, 2)
+        oriented_sprite = self._orient_sprite(sprite, ship.velocity)
+        image_rect = oriented_sprite.get_rect(center=(round(center.x), round(center.y)))
+        self._screen.blit(oriented_sprite, image_rect)
         if isinstance(ship, AncientShip):
             self._draw_health_tick(ship, center)
+
+    @staticmethod
+    def _load_ship_sprite(path: Path, radius: float) -> pygame.Surface:
+        sprite = pygame.image.load(path).convert_alpha()
+        target_size = max(1, round(radius * 3.0))
+        return pygame.transform.smoothscale(sprite, (target_size, target_size))
+
+    @staticmethod
+    def _orient_sprite(
+        sprite: pygame.Surface, velocity: pygame.Vector2
+    ) -> pygame.Surface:
+        if velocity.length_squared() <= 1.0:
+            return sprite
+        angle = math.degrees(math.atan2(-velocity.y, velocity.x)) - 90.0
+        return pygame.transform.rotozoom(sprite, angle, 1.0)
 
     def _draw_health_tick(self, ship: AncientShip, center: pygame.Vector2) -> None:
         width = 38
@@ -98,7 +113,7 @@ class Renderer:
             0.0 if ship.max_health <= 0.0 else (ship.health or 0.0) / ship.max_health
         )
         x = round(center.x - width / 2)
-        y = round(center.y - 28)
+        y = round(center.y - ship.radius * 1.8 - 10)
         pygame.draw.rect(
             self._screen,
             (28, 20, 20),
@@ -116,14 +131,34 @@ class Renderer:
         radius = round(asteroid.radius)
         pygame.draw.circle(self._screen, (92, 91, 88), center_point, radius)
         pygame.draw.circle(self._screen, (52, 52, 56), center_point, radius, width=2)
-        spoke = pygame.Vector2(math.cos(asteroid.rotation), math.sin(asteroid.rotation))
-        pygame.draw.line(
+
+    def _draw_planet(self, planet: Planet) -> None:
+        center = self._world_to_screen(planet.position)
+        center_point = (round(center.x), round(center.y))
+        radius = round(planet.radius)
+        pygame.draw.circle(self._screen, (35, 68, 90), center_point, radius)
+        pygame.draw.circle(self._screen, (85, 160, 150), center_point, radius, width=3)
+        pygame.draw.arc(
             self._screen,
-            (122, 118, 112),
-            center_point,
-            center + spoke * asteroid.radius * 0.65,
+            (150, 195, 180),
+            pygame.Rect(
+                round(center.x - radius * 1.28),
+                round(center.y - radius * 0.44),
+                round(radius * 2.56),
+                round(radius * 0.88),
+            ),
+            math.radians(8),
+            math.radians(172),
             2,
         )
+        if not planet.reward_claimed:
+            pygame.draw.circle(
+                self._screen,
+                (136, 230, 170),
+                center_point,
+                radius + 14,
+                width=1,
+            )
 
     def _draw_projectile(self, projectile: Projectile) -> None:
         center = self._world_to_screen(projectile.position)
@@ -139,6 +174,23 @@ class Renderer:
             (255, 255, 255),
             center_point,
             max(1, round(projectile.radius - 1)),
+        )
+
+    def _draw_hit_effect(self, position: pygame.Vector2, ratio: float) -> None:
+        center = self._world_to_screen(position)
+        alpha = max(0, min(255, int(220 * (1.0 - ratio))))
+        radius = round(8 + 22 * ratio)
+        surface = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(
+            surface,
+            (255, 236, 180, alpha),
+            (radius + 2, radius + 2),
+            radius,
+            width=2,
+        )
+        self._screen.blit(
+            surface,
+            (round(center.x - radius - 2), round(center.y - radius - 2)),
         )
 
     def _draw_warnings(self, system: StarSystem) -> None:

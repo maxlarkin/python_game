@@ -27,6 +27,24 @@ PLAYER_ACCELERATION = 680.0
 PLAYER_MAX_SPEED = 360.0
 PLAYER_FRICTION = 0.86
 PLAYER_FIRE_COOLDOWN = 0.16
+PLAYER_WEAPONS = (
+    {
+        "name": "Импульс",
+        "cooldown": 0.16,
+        "energy_cost": 4.0,
+        "damage": 18.0,
+        "speed": 720.0,
+        "lifetime": 1.8,
+    },
+    {
+        "name": "Пробойник",
+        "cooldown": 0.44,
+        "energy_cost": 13.0,
+        "damage": 42.0,
+        "speed": 560.0,
+        "lifetime": 2.25,
+    },
+)
 
 ANCIENT_RADIUS = 24
 ANCIENT_MAX_HEALTH = 85.0
@@ -49,6 +67,11 @@ ASTEROID_COUNT_MAX = 42
 ANCIENT_COUNT_MIN = 4
 ANCIENT_COUNT_MAX = 8
 
+PLANET_RADIUS = 72
+PLANET_CHANCE = 0.5
+PLANET_INTERACTION_DISTANCE = 170.0
+PLANET_QUEST_REWARD = 45
+
 QUADTREE_CAPACITY = 6
 QUADTREE_MAX_DEPTH = 7
 
@@ -57,3 +80,20 @@ LOG_LEVEL_ENV = "LOG_LEVEL"
 
 BACKGROUND_CELL_SIZE = 6
 BACKGROUND_NOISE_SCALE = 0.013
+
+HIT_EFFECT_DURATION = 0.28
+
+UPGRADE_COSTS = {
+    "hull": 60,
+    "shields": 55,
+    "engine": 70,
+    "reactor": 65,
+    "weapons": 80,
+}
+UPGRADE_LABELS = {
+    "hull": "Корпус",
+    "shields": "Щиты",
+    "engine": "Двигатель",
+    "reactor": "Реактор",
+    "weapons": "Урон пушек",
+}

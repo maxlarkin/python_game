@@ -5,7 +5,7 @@ from __future__ import annotations
 import pygame
 
 import constants
-from models.entities import Asteroid, Entity, Faction, Projectile, Ship
+from models.entities import Asteroid, Entity, Faction, Planet, Projectile, Ship
 from models.galaxy import StarSystem
 from utils.quad_tree import QuadTree, Rect
 
@@ -38,28 +38,29 @@ class CollisionManager:
             if entity.alive:
                 self._tree.insert(entity)
 
-        self._resolve_projectiles(system.projectiles)
+        self._resolve_projectiles(system)
         self._resolve_ship_asteroids(system.player, system.asteroids)
         for enemy in system.enemies:
             self._resolve_ship_asteroids(enemy, system.asteroids)
         enemies_after = sum(1 for enemy in system.enemies if enemy.alive)
         return enemies_before - enemies_after
 
-    def _resolve_projectiles(self, projectiles: list[Projectile]) -> None:
-        for projectile in projectiles:
+    def _resolve_projectiles(self, system: StarSystem) -> None:
+        for projectile in system.projectiles:
             if not projectile.alive:
                 continue
             nearby = self._tree.query(projectile.bounds())
             for target in nearby:
                 if target is projectile or not target.alive:
                     continue
-                if isinstance(target, Projectile):
+                if isinstance(target, Projectile | Planet):
                     continue
                 if target.faction == projectile.faction:
                     continue
                 if projectile.collides_with(target):
                     target.take_damage(projectile.damage)
                     projectile.alive = False
+                    system.add_hit_effect(projectile.position)
                     break
 
     def _resolve_ship_asteroids(self, ship: Ship, asteroids: list[Asteroid]) -> None:

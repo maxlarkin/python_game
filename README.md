@@ -21,7 +21,9 @@ available for your interpreter.
 - Mouse: aim
 - Left mouse button: fire
 - Mouse wheel: switch weapon slot
+- `E`: contact a nearby story planet
 - `Esc`: pause
-- `H`: hyperjump after clearing a patrol
+- `H`: open the hyperjump map after clearing a patrol
+- Settings/shipyard menu: buy permanent hull, shield, engine, and reactor upgrades
 
 Progress is saved to `save.dat`.

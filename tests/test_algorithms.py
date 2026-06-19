@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pygame
+
+import constants
+from models.entities import create_player_ship
+from models.galaxy import Universe
+from models.player import PlayerData
 from utils.bsp import BspGenerator
 from utils.perlin import PerlinNoise
 from utils.quad_tree import QuadTree, Rect
@@ -55,3 +61,54 @@ def test_quad_tree_queries_intersections() -> None:
     result = tree.query(Rect(8, 8, 12, 12))
     assert near in result
     assert far not in result
+
+
+def test_player_upgrades_spend_resources_and_survive_serialization() -> None:
+    """Permanent upgrades should scale cost and serialize with save data."""
+
+    player = PlayerData(resources=200)
+    assert player.buy_upgrade("hull")
+    assert player.resources == 140
+    assert player.upgrades["hull"] == 1
+    assert player.upgrade_cost("hull") == 90
+
+    restored = PlayerData.from_dict(player.to_dict())
+    assert restored.resources == player.resources
+    assert restored.upgrades == player.upgrades
+
+
+def test_star_system_planet_quest_rewards_once(monkeypatch) -> None:
+    """Planet conversations should grant their reward only once."""
+
+    monkeypatch.setattr(constants, "PLANET_CHANCE", 1.0)
+    player = PlayerData()
+    system = Universe(seed=123).create_star_system(0, player)
+    assert system.planet is not None
+
+    system.player.position = system.planet.position.copy()
+    assert system.planet_in_range()
+    lines = system.complete_planet_quest(player)
+
+    assert lines
+    assert player.resources == constants.PLANET_QUEST_REWARD
+    assert player.completed_quests == [0]
+    assert player.artifacts
+
+    system.complete_planet_quest(player)
+    assert player.resources == constants.PLANET_QUEST_REWARD
+    assert player.completed_quests == [0]
+
+
+def test_player_weapon_slots_have_distinct_projectiles() -> None:
+    """Mouse-wheel weapon slots should change projectile behavior."""
+
+    ship = create_player_ship(pygame.Vector2(100.0, 100.0))
+    first = ship.fire_at(pygame.Vector2(200.0, 100.0))
+    assert first is not None
+
+    ship.cooldown_remaining = 0.0
+    ship.weapon_index = 1
+    second = ship.fire_at(pygame.Vector2(200.0, 100.0))
+    assert second is not None
+    assert second.damage > first.damage
+    assert second.velocity.length() < first.velocity.length()

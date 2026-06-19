@@ -109,6 +109,18 @@ class Projectile(Entity):
 
 
 @dataclass
+class Planet(Entity):
+    """Story planet with a one-time quest conversation."""
+
+    name: str = ""
+    dialog_lines: list[str] = field(default_factory=list)
+    reward_claimed: bool = False
+
+    def update(self, dt: float) -> None:
+        """Planets are static but keep the Entity interface."""
+
+
+@dataclass
 class Ship(Entity):
     """Controllable ship with shields, energy, and weapons."""
 
@@ -152,21 +164,37 @@ class Ship(Entity):
             A projectile or None if the weapon is cooling down.
         """
 
-        if self.cooldown_remaining > 0.0 or self.energy < 4.0:
+        profile = constants.PLAYER_WEAPONS[
+            self.weapon_index % len(constants.PLAYER_WEAPONS)
+        ]
+        energy_cost = (
+            float(profile["energy_cost"]) if self.faction == Faction.PLAYER else 4.0
+        )
+        if self.cooldown_remaining > 0.0 or self.energy < energy_cost:
             return None
         direction = target - self.position
         if direction.length_squared() == 0.0:
             direction = pygame.Vector2(1.0, 0.0)
         direction = direction.normalize()
-        self.cooldown_remaining = self.fire_cooldown
-        self.energy -= 4.0
+        if self.faction == Faction.PLAYER:
+            self.cooldown_remaining = float(profile["cooldown"])
+            damage = float(profile["damage"])
+            speed = float(profile["speed"])
+            lifetime = float(profile["lifetime"])
+        else:
+            self.cooldown_remaining = self.fire_cooldown
+            damage = constants.PLAYER_PROJECTILE_DAMAGE
+            speed = constants.PROJECTILE_SPEED
+            lifetime = constants.PROJECTILE_LIFETIME
+        self.energy -= energy_cost
         return Projectile(
             position=self.position + direction * (self.radius + 8.0),
-            velocity=direction * constants.PROJECTILE_SPEED,
+            velocity=direction * speed,
             radius=constants.PROJECTILE_RADIUS,
             faction=self.faction,
             max_health=1.0,
-            damage=constants.PLAYER_PROJECTILE_DAMAGE,
+            damage=damage,
+            lifetime=lifetime,
         )
 
     def take_damage(self, amount: float) -> None:
