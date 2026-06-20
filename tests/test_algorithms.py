@@ -10,6 +10,7 @@ import constants
 from models.entities import create_player_ship
 from models.galaxy import Universe
 from models.player import PlayerData
+from models.story import STORY_DIALOGS
 from utils.bsp import BspGenerator
 from utils.perlin import PerlinNoise
 from utils.quad_tree import QuadTree, Rect
@@ -112,3 +113,65 @@ def test_player_weapon_slots_have_distinct_projectiles() -> None:
     assert second is not None
     assert second.damage > first.damage
     assert second.velocity.length() < first.velocity.length()
+
+
+def test_cleared_systems_respawn_without_enemies() -> None:
+    """Cleared systems should stay marked and empty on future visits."""
+
+    player = PlayerData(cleared_systems=[0])
+    system = Universe(seed=321).create_star_system(0, player)
+
+    assert system.is_cleared()
+    assert system.reward_granted
+    assert player.current_system_id == 0
+
+
+def test_weapon_upgrade_increases_projectile_damage() -> None:
+    """Weapon upgrade levels should increase player projectile damage."""
+
+    player = PlayerData(resources=constants.UPGRADE_COSTS["weapons"])
+    assert player.buy_upgrade("weapons")
+
+    system = Universe(seed=456).create_star_system(0, player)
+    projectile = system.player.fire_at(system.player.position + pygame.Vector2(100, 0))
+
+    assert projectile is not None
+    assert projectile.damage == constants.PLAYER_WEAPONS[0]["damage"] + 4.0
+
+
+def test_story_has_twenty_dialogs_and_advances_on_planet_contact(monkeypatch) -> None:
+    """Planet contacts should reveal one of twenty sequential story fragments."""
+
+    monkeypatch.setattr(constants, "PLANET_CHANCE", 1.0)
+    player = PlayerData()
+    system = Universe(seed=654).create_star_system(0, player)
+    assert system.planet is not None
+
+    system.player.position = system.planet.position.copy()
+    lines = system.complete_planet_quest(player)
+
+    assert len(STORY_DIALOGS) == 20
+    assert "1/20" in lines[0]
+    assert player.story_dialog_index == 1
+
+
+def test_run_progress_reset_keeps_permanent_upgrades() -> None:
+    """Death reset should clear route/story progress but keep upgrades."""
+
+    player = PlayerData(
+        upgrades={"hull": 1, "shields": 0, "engine": 0, "reactor": 0, "weapons": 1},
+        unlocked_systems=[0, 1],
+        cleared_systems=[0],
+        completed_quests=[0],
+        story_dialog_index=4,
+        current_system_id=1,
+    )
+    player.reset_run_progress()
+
+    assert player.upgrades["hull"] == 1
+    assert player.upgrades["weapons"] == 1
+    assert player.unlocked_systems == []
+    assert player.cleared_systems == []
+    assert player.completed_quests == []
+    assert player.story_dialog_index == 0
+    assert player.current_system_id == 0

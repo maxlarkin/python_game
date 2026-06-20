@@ -83,6 +83,10 @@ BACKGROUND_NOISE_SCALE = 0.013
 
 HIT_EFFECT_DURATION = 0.28
 
+MUSIC_VOLUME = 0.45
+MUSIC_FADE_MS = 1800
+LOBBY_TRACK = "alexander-nakarada-chase.mp3"
+
 UPGRADE_COSTS = {
     "hull": 60,
     "shields": 55,

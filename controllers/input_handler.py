@@ -12,6 +12,7 @@ UP_SCANCODES = {pygame.KSCAN_W, pygame.KSCAN_UP}
 DOWN_SCANCODES = {pygame.KSCAN_S, pygame.KSCAN_DOWN}
 HYPERJUMP_SCANCODES = {pygame.KSCAN_H}
 INTERACT_SCANCODES = {pygame.KSCAN_E}
+UPGRADES_SCANCODES = {pygame.KSCAN_G}
 
 
 @dataclass
@@ -24,6 +25,7 @@ class InputState:
     pause_pressed: bool = False
     hyperjump_pressed: bool = False
     interact_pressed: bool = False
+    upgrades_pressed: bool = False
     weapon_delta: int = 0
 
 
@@ -47,6 +49,7 @@ class InputHandler:
         pause_pressed = False
         hyperjump_pressed = False
         interact_pressed = False
+        upgrades_pressed = False
         weapon_delta = 0
         quit_requested = False
 
@@ -63,6 +66,8 @@ class InputHandler:
                     hyperjump_pressed = True
                 elif event.key == pygame.K_e or scancode in INTERACT_SCANCODES:
                     interact_pressed = True
+                elif event.key == pygame.K_g or scancode in UPGRADES_SCANCODES:
+                    upgrades_pressed = True
             elif event.type == pygame.KEYUP:
                 scancode = getattr(event, "scancode", None)
                 if scancode is not None:
@@ -108,6 +113,7 @@ class InputHandler:
             pause_pressed=pause_pressed,
             hyperjump_pressed=hyperjump_pressed,
             interact_pressed=interact_pressed,
+            upgrades_pressed=upgrades_pressed,
             weapon_delta=weapon_delta,
         )
         return state, quit_requested

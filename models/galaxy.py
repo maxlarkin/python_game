@@ -21,6 +21,7 @@ from models.entities import (
     create_player_ship,
 )
 from models.player import PlayerData
+from models.story import story_dialog
 from utils.bsp import BspGenerator, Rect
 
 
@@ -148,6 +149,7 @@ class StarSystem:
 
         self.planet.reward_claimed = True
         player_data.completed_quests.append(self.node.system_id)
+        player_data.story_dialog_index += 1
         player_data.resources += constants.PLANET_QUEST_REWARD
         artifact = f"Запись {self.planet.name}"
         if artifact not in player_data.artifacts:
@@ -211,6 +213,7 @@ class Universe:
         player.max_speed += player_data.upgrades.get("engine", 0) * 24.0
         player.max_energy += player_data.upgrades.get("reactor", 0) * 16.0
         player.energy = player.max_energy
+        player.weapon_damage_bonus = player_data.upgrades.get("weapons", 0) * 4.0
 
         asteroids = [
             create_asteroid(
@@ -240,6 +243,8 @@ class Universe:
                 rng.randint(constants.ANCIENT_COUNT_MIN, constants.ANCIENT_COUNT_MAX)
             )
         ]
+        if system_id in player_data.cleared_systems:
+            enemies = []
         planet = self._create_planet(node, rng, player_data)
         return StarSystem(
             node=node,
@@ -248,6 +253,7 @@ class Universe:
             asteroids=asteroids,
             enemies=enemies,
             planet=planet,
+            reward_granted=system_id in player_data.cleared_systems,
         )
 
     def _generate(self) -> None:
@@ -319,15 +325,7 @@ class Universe:
             position += pygame.Vector2(constants.PLANET_INTERACTION_DISTANCE, 0.0)
 
         name = f"Мир {node.system_id + 1:02d}"
-        dialog_lines = [
-            f"{name}: мы слышим ваш маяк сквозь помехи Древних.",
-            "Колонии видели, как армады выжигали навигационные станции одну за другой.",
-            "В Тиши их двигатели глохнут. Если флот доберётся туда, у обречённых будет шанс.",
-        ]
-        if player_data.runs_completed > 0:
-            dialog_lines.append(
-                "Память прошлых попыток не пропала: каждый забег оставляет след в ядре корабля."
-            )
+        dialog_lines = story_dialog(player_data.story_dialog_index, name)
         return Planet(
             position=position,
             velocity=pygame.Vector2(),

@@ -133,6 +133,7 @@ class Ship(Entity):
     fire_cooldown: float = constants.PLAYER_FIRE_COOLDOWN
     cooldown_remaining: float = 0.0
     weapon_index: int = 0
+    weapon_damage_bonus: float = 0.0
 
     def update(self, dt: float) -> None:
         """Advance ship physics and regenerate energy."""
@@ -178,7 +179,7 @@ class Ship(Entity):
         direction = direction.normalize()
         if self.faction == Faction.PLAYER:
             self.cooldown_remaining = float(profile["cooldown"])
-            damage = float(profile["damage"])
+            damage = float(profile["damage"]) + self.weapon_damage_bonus
             speed = float(profile["speed"])
             lifetime = float(profile["lifetime"])
         else:

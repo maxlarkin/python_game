@@ -76,7 +76,7 @@ class HUD:
             (
                 f"Ресурсы: {player_data.resources}   "
                 f"Артефакты: {len(player_data.artifacts)}   "
-                f"Оружие: {weapon['name']}"
+                f"Оружие: {weapon['name']}   G: улучшения"
             ),
             (24, 176),
             (210, 210, 210),
@@ -177,6 +177,8 @@ class HUD:
             radius = 7
             if node.system_id in player_data.unlocked_systems:
                 color = (104, 176, 202)
+            if node.system_id in player_data.cleared_systems:
+                color = (116, 220, 150)
             if node.system_id in reachable_ids:
                 color = (120, 220, 150)
                 radius = 9
@@ -185,6 +187,8 @@ class HUD:
                 radius = 10
             pygame.draw.circle(surface, color, pos, radius)
             pygame.draw.circle(surface, (18, 20, 28), pos, radius, width=1)
+            if node.system_id in player_data.cleared_systems:
+                pygame.draw.circle(surface, (235, 245, 235), pos, radius + 3, width=1)
             self._draw_text(
                 surface,
                 str(node.system_id + 1),
@@ -223,9 +227,13 @@ class HUD:
             color = (110, 120, 140)
             if node.system_id in player_data.unlocked_systems:
                 color = (110, 190, 210)
+            if node.system_id in player_data.cleared_systems:
+                color = (116, 220, 150)
             if node.system_id == player_data.current_system_id:
                 color = (245, 220, 130)
             pygame.draw.circle(surface, color, (x, y), 4)
+            if node.system_id in player_data.cleared_systems:
+                pygame.draw.circle(surface, (220, 240, 220), (x, y), 7, width=1)
 
     def _draw_galaxy_connections(
         self, surface: pygame.Surface, universe: Universe, rect: pygame.Rect

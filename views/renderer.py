@@ -21,10 +21,10 @@ class Renderer:
 
         assets_dir = Path(__file__).resolve().parent.parent / "assets"
         self._player_sprite = self._load_ship_sprite(
-            assets_dir / "player.png", constants.PLAYER_RADIUS
+            assets_dir / "sprites" / "player.png", constants.PLAYER_RADIUS
         )
         self._enemy_sprite = self._load_ship_sprite(
-            assets_dir / "enemy.png", constants.ANCIENT_RADIUS
+            assets_dir / "sprites" / "enemy.png", constants.ANCIENT_RADIUS
         )
         self._screen = screen
         self._backgrounds = BackgroundGenerator()
@@ -130,7 +130,18 @@ class Renderer:
         center_point = (round(center.x), round(center.y))
         radius = round(asteroid.radius)
         pygame.draw.circle(self._screen, (92, 91, 88), center_point, radius)
-        pygame.draw.circle(self._screen, (52, 52, 56), center_point, radius, width=2)
+        for offset, crater_radius in (
+            (pygame.Vector2(-0.32, -0.18), 0.22),
+            (pygame.Vector2(0.24, 0.12), 0.18),
+            (pygame.Vector2(-0.05, 0.34), 0.14),
+        ):
+            crater_center = center + offset * asteroid.radius
+            pygame.draw.circle(
+                self._screen,
+                (76, 75, 74),
+                (round(crater_center.x), round(crater_center.y)),
+                max(2, round(asteroid.radius * crater_radius)),
+            )
 
     def _draw_planet(self, planet: Planet) -> None:
         center = self._world_to_screen(planet.position)

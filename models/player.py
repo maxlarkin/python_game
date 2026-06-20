@@ -20,10 +20,13 @@ class PlayerData:
             "shields": 0,
             "engine": 0,
             "reactor": 0,
+            "weapons": 0,
         }
     )
     unlocked_systems: list[int] = field(default_factory=list)
+    cleared_systems: list[int] = field(default_factory=list)
     completed_quests: list[int] = field(default_factory=list)
+    story_dialog_index: int = 0
     current_system_id: int = 0
     runs_completed: int = 0
     moral_choice: str | None = None
@@ -64,6 +67,16 @@ class PlayerData:
         self.upgrades[upgrade_key] = self.upgrades.get(upgrade_key, 0) + 1
         return True
 
+    def reset_run_progress(self) -> None:
+        """Reset temporary route and story progress after ship destruction."""
+
+        self.unlocked_systems.clear()
+        self.cleared_systems.clear()
+        self.completed_quests.clear()
+        self.story_dialog_index = 0
+        self.current_system_id = 0
+        self.moral_choice = None
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize progress to plain JSON-compatible data.
 
@@ -97,8 +110,14 @@ class PlayerData:
         player.unlocked_systems = list(
             data.get("unlocked_systems", player.unlocked_systems)
         )
+        player.cleared_systems = list(
+            data.get("cleared_systems", player.cleared_systems)
+        )
         player.completed_quests = list(
             data.get("completed_quests", player.completed_quests)
+        )
+        player.story_dialog_index = int(
+            data.get("story_dialog_index", player.story_dialog_index)
         )
         player.current_system_id = int(
             data.get("current_system_id", player.current_system_id)

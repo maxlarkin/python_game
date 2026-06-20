@@ -15,6 +15,7 @@ from controllers.input_handler import InputHandler, InputState
 from models.galaxy import StarSystem, Universe
 from models.player import PlayerData
 from utils.save_load import load_game, save_game
+from views.audio import MusicManager
 from views.hud import HUD
 from views.menu import MenuSystem
 from views.renderer import Renderer
@@ -36,8 +37,10 @@ class GameLoop:
         )
         self._clock = pygame.time.Clock()
         self._font = create_font(20)
+        self._assets_dir = Path(__file__).resolve().parent.parent / "assets"
         self._input = InputHandler()
         self._renderer = Renderer(self._screen)
+        self._music = MusicManager(self._assets_dir)
         self._hud = HUD(self._font)
         self._menu = MenuSystem(self._font)
         self._ai = AIController()
@@ -62,17 +65,21 @@ class GameLoop:
                 self._clock.tick(constants.FPS_LIMIT) / 1000.0,
                 constants.MAX_FRAME_TIME,
             )
+            self._music.update(self._mode, self._system is not None)
             if self._mode == "playing":
                 self._run_playing(frame_time)
             elif self._mode == "dialog":
                 self._run_dialog()
             elif self._mode == "galaxy_map":
                 self._run_galaxy_map()
+            elif self._mode == "upgrades":
+                self._run_upgrades()
             else:
                 self._run_menu(self._mode)
             pygame.display.flip()
 
         self._autosave()
+        self._music.stop()
         pygame.quit()
 
     def _run_playing(self, frame_time: float) -> None:
@@ -82,6 +89,10 @@ class GameLoop:
             return
         if state.pause_pressed:
             self._mode = "pause"
+            return
+        if state.upgrades_pressed:
+            self._mode = "upgrades"
+            self._draw_playing()
             return
         if state.interact_pressed and self._open_planet_dialog():
             self._draw_playing()
@@ -165,6 +176,26 @@ class GameLoop:
                 current_system_id,
             )
 
+    def _run_upgrades(self) -> None:
+        if self._system is None or self._universe is None:
+            self._mode = "main"
+            return
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self._running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key in {pygame.K_ESCAPE, pygame.K_g}:
+                    self._mode = "playing"
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                action = self._menu.upgrade_action_at(event.pos, self._player_data)
+                if action is not None:
+                    self._buy_upgrade(action)
+
+        self._draw_playing()
+        if self._running and self._mode == "upgrades":
+            self._menu.draw_upgrades(self._screen, self._player_data)
+
     def _fixed_update(self, state: InputState, dt: float) -> None:
         if self._system is None:
             return
@@ -192,6 +223,9 @@ class GameLoop:
         if self._system.is_cleared() and not self._system.reward_granted:
             self._system.reward_granted = True
             self._player_data.resources += 35
+            system_id = self._system.node.system_id
+            if system_id not in self._player_data.cleared_systems:
+                self._player_data.cleared_systems.append(system_id)
             artifact = f"Осколок Тиши {self._system.node.system_id + 1}"
             if artifact not in self._player_data.artifacts:
                 self._player_data.artifacts.append(artifact)
@@ -201,6 +235,7 @@ class GameLoop:
 
         if not player.alive:
             self._player_data.runs_completed += 1
+            self._player_data.reset_run_progress()
             self._autosave()
             self._mode = "main"
 
@@ -300,6 +335,8 @@ class GameLoop:
             elif upgrade_key == "reactor":
                 player.max_energy += 16.0
                 player.energy = min(player.max_energy, player.energy + 16.0)
+            elif upgrade_key == "weapons":
+                player.weapon_damage_bonus += 4.0
         self._autosave()
 
     def _autosave(self) -> None:
