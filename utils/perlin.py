@@ -57,7 +57,7 @@ class PerlinNoise:
 
     @staticmethod
     def _fade(t: float) -> float:
-        return t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+        return (6 * t**5) - (15 * t**4) + (10 * t**3)
 
     @staticmethod
     def _lerp(a: float, b: float, t: float) -> float:
