@@ -68,7 +68,7 @@ class Entity:
         """
 
         self.velocity += force * dt
-        if self.velocity.length_squared() > max_speed * max_speed:
+        if self.velocity.length_squared() > max_speed ** 2:
             self.velocity.scale_to_length(max_speed)
 
     def take_damage(self, amount: float) -> None:

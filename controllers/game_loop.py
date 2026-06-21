@@ -332,7 +332,7 @@ class GameLoop:
                 player.max_shields += 12.0
                 player.shields = min(player.max_shields, player.shields + 12.0)
             elif upgrade_key == "engine":
-                player.max_speed += 24.0
+                player.max_speed += 24000.0
             elif upgrade_key == "reactor":
                 player.max_energy += 16.0
                 player.energy = min(player.max_energy, player.energy + 16.0)
