@@ -32,8 +32,9 @@ class GameLoop:
         logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
         pygame.display.init()
         pygame.display.set_caption(constants.WINDOW_TITLE)
+        display_flags = pygame.FULLSCREEN if constants.FULLSCREEN else 0
         self._screen = pygame.display.set_mode(
-            (constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT)
+            (constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT), display_flags
         )
         self._clock = pygame.time.Clock()
         self._font = create_font(20)

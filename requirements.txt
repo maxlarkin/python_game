@@ -1,1 +1,17 @@
-pygame>=2.6,<3
+# For development
+
+# black==26.5.1
+# click==8.4.1
+# iniconfig==2.3.0
+# mypy_extensions==1.1.0
+# packaging==26.2
+# pathspec==1.1.1
+# platformdirs==4.10.0
+# pluggy==1.6.0
+# pygame==2.6.1
+# Pygments==2.20.0
+# pytest==9.1.0
+# pytokens==0.4.1
+
+# For prod
+pygame==2.6.1
