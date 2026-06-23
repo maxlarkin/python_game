@@ -192,7 +192,7 @@ def _is_low_health(context: AIContext) -> bool:
 def _can_detect_player(context: AIContext) -> bool:
     return (
         context.enemy.position.distance_squared_to(context.player.position)
-        <= constants.ANCIENT_DETECTION_RADIUS * constants.ANCIENT_DETECTION_RADIUS
+        <= constants.ANCIENT_DETECTION_RADIUS ** 2
     )
 
 
